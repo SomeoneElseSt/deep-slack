@@ -1,0 +1,11 @@
+firebase-functions
+google-cloud-firestore
+google-cloud-secret-manager
+openai
+tenacity
+weave
+croniter
+pytz
+slack-bolt
+python-dotenv
+protobuf

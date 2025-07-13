@@ -15,7 +15,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-from firebase_client import (
+from deep_slack.main import (
     save_user_schedule, 
     get_user_schedules, 
     deactivate_user_schedule,
@@ -135,6 +135,40 @@ def parse_friendly_schedule(schedule_text):
     cron = f"{minute} {hour} * * {day_string}"
     return cron, friendly_desc
 
+def cron_to_friendly(cron: str) -> str:
+    """Convert a cron string (minute hour * * day) to a human-friendly description."""
+    # Only support the format we generate: 'minute hour * * day(s)'
+    parts = cron.strip().split()
+    if len(parts) != 5:
+        return cron  # fallback
+    minute, hour, _, _, days = parts
+    # Day mapping
+    day_map = {
+        '0': 'Sunday', '1': 'Monday', '2': 'Tuesday', '3': 'Wednesday', '4': 'Thursday', '5': 'Friday', '6': 'Saturday'
+    }
+    # Handle special cases
+    if days == '*':
+        day_str = 'Every day'
+    elif days == '1-5':
+        day_str = 'Weekdays'
+    elif days == '6,0' or days == '0,6':
+        day_str = 'Weekends'
+    else:
+        day_nums = days.split(',')
+        day_names = [day_map.get(d, d) for d in day_nums]
+        if len(day_names) == 1:
+            day_str = day_names[0]
+        else:
+            day_str = ', '.join(day_names[:-1]) + ' and ' + day_names[-1]
+    # Format time
+    try:
+        hour_int = int(hour)
+        minute_int = int(minute)
+        time_str = f"{hour_int}:{minute_int:02d}"
+    except Exception:
+        time_str = f"{hour}:{minute}"
+    return f"{day_str} at {time_str}"
+
 # ========== MESSAGE HANDLERS ==========
 
 @app.message("hi")
@@ -248,7 +282,8 @@ def handle_setup_command(ack, body, client, logger):
     # Show existing schedules and options
     schedule_text = ""
     for i, schedule in enumerate(schedules[:3]):  # Show max 3
-        schedule_text += f"{i+1}. *\"{schedule['prompt'][:50]}...\"*\n   📅 Schedule: {schedule['cron_schedule']}\n   🆔 ID: `{schedule['id']}`\n\n"
+        friendly = cron_to_friendly(schedule['cron_schedule'])
+        schedule_text += f"{i+1}. *\"{schedule['prompt'][:50]}...\"*\n   📅 Schedule: {friendly}\n   🆔 ID: `{schedule['id']}`\n\n"
     
     client.chat_postMessage(
         channel=channel_id,
@@ -274,8 +309,9 @@ def handle_my_schedules(ack, body, client):
     
     schedule_text = "📋 *Your Active Research Schedules:*\n\n"
     for i, schedule in enumerate(schedules):
+        friendly = cron_to_friendly(schedule['cron_schedule'])
         schedule_text += f"*{i+1}.* *\"{schedule['prompt'][:100]}...\"*\n"
-        schedule_text += f"   📅 Schedule: {schedule['cron_schedule']}\n"
+        schedule_text += f"   📅 Schedule: {friendly}\n"
         schedule_text += f"   🆔 ID: `{schedule['id']}`\n"
         schedule_text += f"   📊 Channel: <#{schedule['channel_id']}>\n\n"
     

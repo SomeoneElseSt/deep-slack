@@ -13,8 +13,10 @@ import traceback
 
 # OpenAI and other imports
 from openai import OpenAI
+from openai import RateLimitError  # Add this import
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import weave
+import time  # Add this import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -63,28 +65,26 @@ class OpenAIResearchClient:
             logger.error(f"Failed to initialize OpenAI client: {e}")
             raise
     
+    # Remove @retry decorator
     @weave.op()
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((Exception,))
-    )
     def deep_research(self, prompt: str) -> str:
-        try:
-            response = self.client.responses.create(
-                model="o3-deep-research",  # Correct model
-                input=prompt,              # Correct parameter
-                tools=[
-                    {"type": "web_search_preview"}  # Required tool
-                ],
-                max_output_tokens=25000    # Minimum recommended
-            )
-            
-            return response.output_text  # Correct response access
-            
-        except Exception as e:
-            logger.error(f"Deep research failed: {e}")
-            raise
+        for attempt in range(5):
+            try:
+                response = self.client.responses.create(
+                    model="o4-mini-deep-research-2025-06-26",
+                    input=prompt,
+                    tools=[
+                        {"type": "web_search_preview"}
+                    ],
+                    max_output_tokens=15000
+                )
+                return response.output_text
+            except RateLimitError:
+                time.sleep(0.6)
+            except Exception as e:
+                logger.error(f"Deep research failed: {e}")
+                raise
+        raise RuntimeError("Deep research failed after 5 attempts due to rate limiting.")
     
     def format_for_slack(self, content: str) -> str:
         """Format research content for Slack display"""

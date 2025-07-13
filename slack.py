@@ -324,20 +324,36 @@ def handle_my_schedules(ack, body, client):
 
 def deliver_outbox_messages():
     """Deliver pending messages from Firebase outbox to Slack"""
-    messages = get_outbox_messages()
-    
-    for message in messages:
-        try:
-            app.client.chat_postMessage(
-                channel=message["channel_id"],
-                text=message["message"]
-            )
-            
-            # Mark as delivered
-            mark_delivered(message["id"])
-            
-        except Exception as e:
-            logger.error(f"Failed to deliver message {message['id']}: {e}")
+    try:
+        messages = get_outbox_messages()
+        logger.info(f"📬 Found {len(messages)} undelivered messages")
+        
+        if not messages:
+            logger.info("✅ No messages to deliver")
+            return
+        
+        for message in messages:
+            try:
+                logger.info(f"📤 Delivering message {message['id']} to channel {message['channel_id']}")
+                
+                app.client.chat_postMessage(
+                    channel=message["channel_id"],
+                    text=message["message"]
+                )
+                
+                # Mark as delivered
+                mark_delivered(message["id"])
+                logger.info(f"✅ Message {message['id']} delivered successfully")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to deliver message {message['id']}: {e}")
+                logger.error(f"❌ Channel: {message['channel_id']}")
+                logger.error(f"❌ Message preview: {message['message'][:100]}...")
+                
+    except Exception as e:
+        logger.error(f"❌ Error getting outbox messages: {e}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
 
 # ========== BACKGROUND TASKS ==========
 
@@ -375,3 +391,13 @@ if __name__ == "__main__":
     
     handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
     handler.start()
+
+def test_firebase_connection():
+    """Test Firebase connection from Slack bot"""
+    try:
+        messages = get_outbox_messages()
+        print(f"✅ Firebase connection working - found {len(messages)} messages")
+        return True
+    except Exception as e:
+        print(f"❌ Firebase connection failed: {e}")
+        return False

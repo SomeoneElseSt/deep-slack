@@ -146,7 +146,7 @@ def handle_greeting(message, say):
     # Start new setup session
     session = start_session(user_id, channel_id, workspace_id)
     
-    say(f"Hello <@{user_id}>! 👋\n\nI'm your Deep Research assistant. I can help you set up automated research reports.\n\n**Step 1:** Please provide your deep research prompt.\n\n*Example: \"Latest trends in artificial intelligence and machine learning\"*")
+    say(f"Hello <@{user_id}>! 👋\n\nI'm your Deep Research assistant. I can help you set up automated research reports.\n\n*Step 1️⃣:* Please provide your deep research prompt.\n\n*Example 🧠: \"Latest trends in artificial intelligence and machine learning\"*")
 
 @app.event("message")
 def handle_message_events(body, say, logger):
@@ -172,7 +172,7 @@ def handle_setup_conversation(session, text, say, logger):
         session.prompt = text
         session.step = "confirming_prompt"
         
-        say(f"✅ **Prompt received:**\n\n*\"{text}\"*\n\n**Step 2:** Now let's set up your schedule! When do you want to receive these research reports?\n\nPlease tell me:\n• **Day(s) of the week** (e.g., Monday, Wednesday, Friday)\n• **Hour of the day** in 24-hour format (e.g., 9 for 9 AM, 14 for 2 PM)\n\n*Examples:*\n• \"Monday 9\" (Mondays at 9 AM)\n• \"Every day 8\" (Daily at 8 AM)\n• \"Weekdays 14\" (Weekdays at 2 PM)\n• \"Monday Wednesday Friday 10\" (MWF at 10 AM)")
+        say(f"✅ *Prompt received:*\n\n*\"{text}\"*\n\n*Step 2️⃣:* Now let's set up your schedule! When do you want to receive these research reports?\n\nPlease tell me:\n• *Day(s) of the week* (e.g., Monday, Wednesday, Friday)\n• *Hour of the day* in 24-hour format (e.g., 9 for 9 AM, 14 for 2 PM)\n\n*Examples:*\n• \"Monday 9\" (Mondays at 9 AM)\n• \"Every day 8\" (Daily at 8 AM)\n• \"Weekdays 14\" (Weekdays at 2 PM)\n• \"Monday Wednesday Friday 10\" (MWF at 10 AM)")
         
         session.step = "waiting_for_schedule"
     
@@ -181,19 +181,19 @@ def handle_setup_conversation(session, text, say, logger):
         cron, friendly_desc = parse_friendly_schedule(text)
         
         if not cron:
-            say(f"❌ **Schedule format error:** {friendly_desc}\n\nPlease try again with format like:\n• \"Monday 9\" (Mondays at 9 AM)\n• \"Every day 8\" (Daily at 8 AM)\n• \"Weekdays 14\" (Weekdays at 2 PM)")
+            say(f"❌ *Schedule format error:* {friendly_desc}\n\nPlease try again with format like:\n• \"Monday 9\" (Mondays at 9 AM)\n• \"Every day 8\" (Daily at 8 AM)\n• \"Weekdays 14\" (Weekdays at 2 PM)")
             return
         
         # Validate cron
         if not validate_cron_schedule(cron):
-            say(f"❌ **Invalid schedule format.** Please try again.")
+            say(f"❌ *Invalid schedule format.* Please try again.")
             return
         
         session.cron_schedule = cron
         session.friendly_schedule = friendly_desc
         session.step = "confirming"
         
-        say(f"✅ **Schedule set:** {friendly_desc}\n\n**Final confirmation:**\n\n🔬 **Research Prompt:**\n*\"{session.prompt}\"*\n\n📅 **Schedule:**\n*{friendly_desc}*\n\nType **'confirm'** to save this schedule or **'cancel'** to start over.")
+        say(f"✅ *Schedule set:* {friendly_desc}\n\n*Final confirmation:*\n\n🔬 *Research Prompt:* {session.prompt}\n\n📅 *Schedule:* {friendly_desc}\n\nType *'confirm'* to save this schedule or *'cancel'* to start over.")
     
     elif session.step == "confirming":
         if text.lower() == "confirm":
@@ -208,20 +208,20 @@ def handle_setup_conversation(session, text, say, logger):
                     timezone_str="UTC"  # Can be enhanced to detect user timezone
                 )
                 
-                say(f"🎉 **Research schedule created successfully!**\n\n✅ Your reports will be delivered {session.friendly_schedule}\n✅ Schedule ID: `{schedule_id}`\n\nYou can manage your schedules with `/setup-deep-research`")
+                say(f"🎉 *Research schedule created successfully!*\n\n✅ Your reports will be delivered {session.friendly_schedule}\n✅ Schedule ID: `{schedule_id}`\n\nYou can manage your schedules with `/setup-deep-research`")
                 
                 end_session(session.user_id)
                 
             except Exception as e:
                 logger.error(f"Failed to save schedule: {e}")
-                say(f"❌ **Error saving schedule:** {str(e)}\n\nPlease try again.")
+                say(f"❌ *Error saving schedule:* {str(e)}\n\nPlease try again.")
         
         elif text.lower() == "cancel":
-            say("❌ **Setup cancelled.** Type 'hi' to start over.")
+            say("❌ *Setup cancelled.* Type 'hi' to start over.")
             end_session(session.user_id)
         
         else:
-            say("Please type **'confirm'** to save or **'cancel'** to start over.")
+            say("Please type *'confirm'* to save or *'cancel'* to start over.")
 
 # ========== SLASH COMMANDS ==========
 
@@ -241,7 +241,7 @@ def handle_setup_command(ack, body, client, logger):
         session = start_session(user_id, channel_id, workspace_id)
         client.chat_postMessage(
             channel=channel_id,
-            text="Welcome to Deep Research setup! 🔬\n\n**Step 1:** Please provide your deep research prompt.\n\n*Example: \"Latest trends in artificial intelligence\"*"
+            text="Welcome to Deep Research setup! 🔬\n\n*Step 1️⃣:* Please provide your deep research prompt.\n\n*Example 🧠: \"Latest trends in artificial intelligence\"*"
         )
         return
     
@@ -252,7 +252,7 @@ def handle_setup_command(ack, body, client, logger):
     
     client.chat_postMessage(
         channel=channel_id,
-        text=f"**Your current research schedules:**\n\n{schedule_text}**What would you like to do?**\n• Type **'new'** to create a new schedule\n• Type **'edit [schedule_id]'** to modify a schedule\n• Type **'delete [schedule_id]'** to remove a schedule\n• Type **'list'** to see all schedules"
+        text=f"*Your current research schedules:*\n\n{schedule_text}*What would you like to do?*\n• Type *'new'* to create a new schedule\n• Type *'edit [schedule_id]'* to modify a schedule\n• Type *'delete [schedule_id]'* to remove a schedule\n• Type *'list'* to see all schedules"
     )
 
 @app.command("/my-schedules")
@@ -268,13 +268,13 @@ def handle_my_schedules(ack, body, client):
     if not schedules:
         client.chat_postMessage(
             channel=channel_id,
-            text="📋 **No active research schedules found.**\n\nType 'hi' to create your first schedule!"
+            text="📋 *No active research schedules found.*\n\nType 'hi' to create your first schedule!"
         )
         return
     
-    schedule_text = "📋 **Your Active Research Schedules:**\n\n"
+    schedule_text = "📋 *Your Active Research Schedules:*\n\n"
     for i, schedule in enumerate(schedules):
-        schedule_text += f"**{i+1}.** *\"{schedule['prompt'][:100]}...\"*\n"
+        schedule_text += f"*{i+1}.* *\"{schedule['prompt'][:100]}...\"*\n"
         schedule_text += f"   📅 Schedule: {schedule['cron_schedule']}\n"
         schedule_text += f"   🆔 ID: `{schedule['id']}`\n"
         schedule_text += f"   📊 Channel: <#{schedule['channel_id']}>\n\n"

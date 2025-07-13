@@ -33,6 +33,14 @@ class OpenAIResearchClient:
     def _initialize_weave(self):
         """Initialize Weave tracking with W&B authentication"""
         try:
+            # Get Wandb API key from Secret Manager
+            wandb_key = self._get_secret("wandb-api-key")
+            
+            # Login to Wandb programmatically
+            import wandb
+            wandb.login(key=wandb_key)
+            
+            # Initialize Weave
             weave.init(project_name="deep-slack-research")
             logger.info("Weave tracking initialized successfully")
         except Exception as e:
@@ -41,7 +49,6 @@ class OpenAIResearchClient:
     def _get_secret(self, secret_name: str) -> str:
         """Retrieve secret from Google Secret Manager"""
         client = SecretManagerServiceClient()
-
         name = f"projects/{self.project_id}/secrets/{secret_name}/versions/latest"
         response = client.access_secret_version(request={"name": name})
         return response.payload.data.decode("UTF-8")
@@ -62,35 +69,18 @@ class OpenAIResearchClient:
         wait=wait_exponential(multiplier=1, min=4, max=10),
         retry=retry_if_exception_type((Exception,))
     )
-    def deep_research(self, prompt: str, max_tokens: int = 4000) -> str:
-        """Perform deep research using OpenAI's Deep Research API"""
+    def deep_research(self, prompt: str) -> str:
         try:
-            logger.info(f"Starting deep research for prompt: {prompt[:100]}...")
-            
-            system_prompt = """You are an expert research assistant. Your task is to provide comprehensive, well-structured research on the given topic. 
-
-            Guidelines:
-            - Provide in-depth analysis with multiple perspectives
-            - Include relevant facts, statistics, and examples
-            - Structure your response with clear headings and bullet points
-            - Be objective and cite reasoning for conclusions
-            - Format for easy reading in Slack (use markdown)
-            - Aim for thoroughness while remaining concise
-            """
-            
-            response = self.client.chat.completions.create(
-                model="o1-preview",
-                messages=[
-                    {"role": "user", "content": f"{system_prompt}\n\nResearch topic: {prompt}"}
+            response = self.client.responses.create(
+                model="o3-deep-research",  # Correct model
+                input=prompt,              # Correct parameter
+                tools=[
+                    {"type": "web_search_preview"}  # Required tool
                 ],
-                max_completion_tokens=max_tokens,
-                temperature=1.0,
-                stream=False
+                max_output_tokens=25000    # Minimum recommended
             )
             
-            result = response.choices[0].message.content
-            logger.info("Deep research completed successfully")
-            return result
+            return response.output_text  # Correct response access
             
         except Exception as e:
             logger.error(f"Deep research failed: {e}")
@@ -98,19 +88,12 @@ class OpenAIResearchClient:
     
     def format_for_slack(self, content: str) -> str:
         """Format research content for Slack display"""
-        formatted = content
+        # Fixed: Proper Slack formatting that preserves bold
+        formatted = content.replace("### ", "*").replace("## ", "*").replace("# ", "*")
+        formatted = formatted.replace("**", "*")  # Convert markdown bold to Slack bold
+        # ← REMOVED: formatted.replace("*", "_") - this was breaking everything
         
-        # Convert markdown to Slack formatting
-        formatted = formatted.replace("### ", "*")
-        formatted = formatted.replace("## ", "*")
-        formatted = formatted.replace("# ", "*")
-        formatted = formatted.replace("**", "*")
-        formatted = formatted.replace("*", "_")
-        
-        # Add separator for readability
-        formatted = f"🔬 *Deep Research Results* 🔬\n\n{formatted}"
-        
-        return formatted
+        return f"🔬 *Deep Research Results* 🔬\n\n{formatted}"
     
     def validate_prompt(self, prompt: str) -> bool:
         """Validate research prompt for safety and quality"""
@@ -122,6 +105,7 @@ class OpenAIResearchClient:
             return False
             
         return True
+
 
 class FirebaseClient:
     def __init__(self):
@@ -206,7 +190,7 @@ class FirebaseClient:
             return False
     
     def is_schedule_due(self, schedule: Dict) -> bool:
-        """Check if a schedule is due to run using next-occurrence logic"""
+        """Check if a schedule is due to run using previous-occurrence logic"""
         try:
             cron_schedule = schedule["cron_schedule"]
             timezone_str = schedule.get("timezone", "UTC")
@@ -217,15 +201,14 @@ class FirebaseClient:
             
             cron = croniter(cron_schedule, now)
             
-            # Get NEXT occurrence instead of previous
-            next_time = cron.get_next(datetime)
+            # Get PREVIOUS occurrence (when it should have run)
+            prev_time = cron.get_prev(datetime)
             
-            # Check if we're within 1 minute of the next scheduled time
-            time_diff = abs((next_time - now).total_seconds())
-            
-            # Only run if we're within 60 seconds of scheduled time
-            if time_diff <= 60:
-                if last_run is None or last_run < next_time:
+            # Check if we're past the scheduled time and haven't run yet
+            if now >= prev_time:
+                # If never run, or last run was before this scheduled time
+                if last_run is None or last_run < prev_time:
+                    logger.info(f"Schedule {schedule['id']} is due - scheduled: {prev_time}, last_run: {last_run}")
                     return True
             
             return False
@@ -233,6 +216,7 @@ class FirebaseClient:
         except Exception as e:
             logger.error(f"Error checking if schedule is due: {e}")
             return False
+
     
     def add_to_outbox(self, workspace_id: str, channel_id: str, message: str):
         """Add a message to the outbox for Slack delivery"""
@@ -255,19 +239,29 @@ class FirebaseClient:
         """Process all schedules that are due to run"""
         try:
             schedules = self.get_active_schedules()
-            processed_count = 0
+            logger.info(f"🔍 Checking {len(schedules)} active schedules")
             
+            processed_count = 0
             for schedule in schedules:
+                schedule_id = schedule["id"]
+                cron_schedule = schedule["cron_schedule"]
+                
+                logger.info(f"📅 Checking schedule {schedule_id}: {cron_schedule}")
+                
                 if self.is_schedule_due(schedule):
+                    logger.info(f"🔥 Executing due schedule: {schedule_id}")
                     self.execute_research_job(schedule)
                     processed_count += 1
+                else:
+                    logger.info(f"⏭️ Schedule {schedule_id} not due yet")
             
-            logger.info(f"Processed {processed_count} due schedules out of {len(schedules)} total")
+            logger.info(f"✅ Processed {processed_count} due schedules out of {len(schedules)} total")
             return processed_count
             
         except Exception as e:
-            logger.error(f"Error processing due schedules: {e}")
+            logger.error(f"❌ Error processing due schedules: {e}")
             return 0
+
     
     def execute_research_job(self, schedule: Dict):
         """Execute a research job for a specific schedule"""
@@ -405,7 +399,7 @@ else:
 @scheduler_fn.on_schedule(
     schedule="*/5 * * * *",
     region=REGION,
-    timeout_sec=540,
+    timeout_sec=1000,
     memory=1024,
     min_instances=1,
     max_instances=1,

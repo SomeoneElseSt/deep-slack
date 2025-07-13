@@ -1,3 +1,13 @@
 slack-bolt==1.23.0
 slack-sdk==3.36.0
 croniter==1.4.0
+firebase-functions
+google-cloud-firestore
+google-cloud-secret-manager
+openai
+tenacity
+weave
+croniter
+pytz
+slack-bolt
+python-dotenv

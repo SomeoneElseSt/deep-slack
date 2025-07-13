@@ -50,3 +50,26 @@ logs/
 htmlcov/
 .venv/
 firebase-service-account.json
+# Firebase/Google
+.firebaserc
+firebase_config.txt
+firebase.json
+apphosting.yaml
+database.rules.json
+firestore.indexes.json
+firestore.rules
+remoteconfig.template.json
+storage.rules
+
+# Node
+functions/node_modules/
+functions/.env*
+functions/lib/
+functions/dist/
+
+# Python
+deep-slack/venv/
+
+# Build/Emulator output
+public/
+dataconnect/.dataconnect/

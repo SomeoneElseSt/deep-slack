@@ -48,3 +48,5 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+.venv/
+firebase-service-account.json

@@ -11,3 +11,4 @@ croniter
 pytz
 slack-bolt
 python-dotenv
+protobuf

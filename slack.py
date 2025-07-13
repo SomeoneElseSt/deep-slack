@@ -2,6 +2,8 @@
 import os
 import re
 import json
+import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler

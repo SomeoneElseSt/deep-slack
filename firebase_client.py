@@ -97,49 +97,30 @@ class FirebaseClient:
             return True
         except CroniterBadCronError:
             return False
-    
+
     def is_schedule_due(self, schedule: Dict) -> bool:
-        """
-        Check if a schedule is due to run
-        Core logic for determining when jobs should execute
-        """
-        try:
-            cron_schedule = schedule["cron_schedule"]
-            timezone_str = schedule.get("timezone", "UTC")
-            last_run = schedule.get("last_run")
-            
-            # Get current time in schedule's timezone
-            tz = pytz.timezone(timezone_str)
-            now = datetime.now(tz)
-            
-            # Create croniter instance
-            cron = croniter(cron_schedule, now)
-            
-            # Get the previous scheduled time
-            prev_time = cron.get_prev(datetime)
-            
-            # If never run, it's due
-            if last_run is None:
-                logger.info(f"Schedule {schedule['id']} never run - marking as due")
+        cron_schedule = schedule["cron_schedule"]
+        timezone_str = schedule.get("timezone", "UTC")
+        last_run = schedule.get("last_run")
+        
+        tz = pytz.timezone(timezone_str)
+        now = datetime.now(tz)
+        
+        cron = croniter(cron_schedule, now)
+        
+        # Get NEXT occurrence instead of previous
+        next_time = cron.get_next(datetime)
+        
+        # Check if we're within 1 minute of the next scheduled time
+        time_diff = abs((next_time - now).total_seconds())
+        
+        # Only run if we're within 60 seconds of scheduled time
+        if time_diff <= 60:
+            if last_run is None or last_run < next_time:
                 return True
-                
-            # Convert last_run to timezone-aware datetime
-            if hasattr(last_run, 'timestamp'):
-                last_run_dt = datetime.fromtimestamp(last_run.timestamp(), tz=tz)
-            else:
-                last_run_dt = last_run.replace(tzinfo=tz)
-            
-            # Check if we should run (last run was before the previous scheduled time)
-            should_run = last_run_dt < prev_time
-            
-            if should_run:
-                logger.info(f"Schedule {schedule['id']} is due. Last run: {last_run_dt}, Previous scheduled: {prev_time}")
-            
-            return should_run
-            
-        except Exception as e:
-            logger.error(f"Error checking if schedule is due: {e}")
-            return False
+        
+        return False
+
     
     def add_to_outbox(self, workspace_id: str, channel_id: str, message: str):
         """Add a message to the outbox for Slack delivery"""
@@ -295,10 +276,10 @@ class FirebaseClient:
 firebase_client = FirebaseClient()
 
 # ========== SCHEDULED CLOUD FUNCTION ==========
-@scheduler_fn.on_schedule(schedule="*/15 * * * *", region=REGION)
+@scheduler_fn.on_schedule(schedule="*/5 * * * *", region=REGION)
 def process_research_schedules(event):
     """
-    Scheduled function that runs every 15 minutes to process due research jobs
+    Scheduled function that runs every 5 minutes to process due research jobs
     This is the heart of the system - continuously checking for due jobs
     """
     logger.info("Starting scheduled research job processing")
